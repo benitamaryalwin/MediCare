@@ -5,7 +5,6 @@ import com.medicarepro.service.ClinicEvents;
 import com.medicarepro.service.ClinicRepository;
 
 import javax.swing.*;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -17,7 +16,7 @@ import java.util.Map;
 import java.util.TreeSet;
 
 public final class AppointmentsPanel extends RecordPanel<Appointment> {
-    private static final String[] COLUMNS = {"ID", "Patient", "Doctor", "Appointment time", "Source", "Status", "Billed"};
+    private static final String[] COLUMNS = {"ID", "Patient", "Doctor", "Appointment time", "Source", "Status"};
     private static final DateTimeFormatter DISPLAY = DateTimeFormatter.ofPattern("dd MMM yyyy · HH:mm");
     private final ClinicRepository repository;
     private final User user;
@@ -34,7 +33,6 @@ public final class AppointmentsPanel extends RecordPanel<Appointment> {
                 runAsync("Appointment update", () -> repository.markAppointmentMissed(user, appointment.id()));
             }
         }));
-        addActionButton("Create invoice", () -> withSelected(this::createInvoice));
         addActionButton("Export CSV", () -> CsvExporter.export(this, table, "medicare-appointments.csv"));
     }
 
@@ -155,39 +153,9 @@ public final class AppointmentsPanel extends RecordPanel<Appointment> {
         }
     }
 
-    private void createInvoice(Appointment appointment) {
-        if (!"Completed".equals(appointment.status())) {
-            JOptionPane.showMessageDialog(this, "Complete the consultation before billing this appointment.",
-                    "Billing", JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
-        Map<String, String> values = FormDialogs.show(this, "Create appointment invoice",
-                List.of(FieldSpec.text("fee", "Consultation fee", "0.00"),
-                        FieldSpec.text("medication", "Medication amount", "0.00"),
-                        FieldSpec.text("other", "Other charges", "0.00")));
-        if (values == null) return;
-        try {
-            BigDecimal fee = money(values.get("fee"));
-            BigDecimal medication = money(values.get("medication"));
-            BigDecimal other = money(values.get("other"));
-            runAsync("Invoice creation", () -> repository.createInvoiceFromAppointment(
-                    user, appointment.id(), fee, medication, other));
-        } catch (RuntimeException error) {
-            FormDialogs.showError(this, error);
-        }
-    }
-
-    private static BigDecimal money(String value) {
-        try {
-            return new BigDecimal(value);
-        } catch (NumberFormatException exception) {
-            throw new IllegalArgumentException("Enter each amount using numbers with up to two decimal places.");
-        }
-    }
-
     private static Object[] row(Appointment appointment) {
         return new Object[]{appointment.id(), appointment.patientName(), appointment.doctorName(),
                 appointment.appointmentAt().atZoneSameInstant(ZoneId.systemDefault()).format(DISPLAY),
-                appointment.visitMode(), appointment.status(), appointment.billed() ? "Yes" : "No"};
+                appointment.visitMode(), appointment.status()};
     }
 }

@@ -61,10 +61,10 @@ The password is not saved in this project. If the variables are omitted, the app
 
 ## First login and account privacy
 
-- On the first launch, the setup screen creates the initial administrator account.
-- The administrator signs in and creates separate user accounts in **User accounts**.
+- On the first launch, the setup screen creates the initial Head Doctor account.
+- The Head Doctor signs in and creates separate user accounts in **User accounts**.
 - Regular accounts only see and change records owned by that account.
-- The administrator can view records across accounts and manage user accounts.
+- The Head Doctor can view/search records across accounts and manage user accounts.
 - Passwords are stored as salted PBKDF2 hashes, not plain text.
 
 This is a learning project. Do not enter real patient or other sensitive medical information.
@@ -74,13 +74,12 @@ This is a learning project. Do not enter real patient or other sensitive medical
 - Dashboard and summary counts
 - Patient create, view, search, update, delete, and CSV export
 - Doctor directory, availability, create, update, delete, and CSV export
-- Appointment booking and changes, appointment queue, missed appointments, and appointment-based invoices
+- Appointment booking and changes, appointment queue, and missed appointments
 - Consultation start/complete, consultation history, and undo of the latest consultation
-- Invoice create/update/delete and paid/unpaid status
-- Administrator user creation, password reset, and enable/disable controls
+- Head Doctor user creation, password reset, and enable/disable controls
 - Sign out and role-specific navigation
 
-The appointment and invoice flows use database records; the buttons are not visual placeholders. Create a patient and an available doctor before booking an appointment.
+The appointment flows use database records; the buttons are not visual placeholders. Create a patient and an available doctor before booking an appointment.
 
 ## Java topics shown in the source
 
@@ -92,7 +91,6 @@ The appointment and invoice flows use database records; the buttons are not visu
 - Background work with `SwingWorker` so database actions do not freeze the Swing interface
 - Exception handling, JDBC prepared statements, and transactional appointment creation
 - File input/output for CSV export and filtered Java serialization for non-sensitive window-size settings
-- Monetary values use `BigDecimal`
 
 ## Build and tests
 
@@ -119,7 +117,7 @@ The Maven project downloads the PostgreSQL JDBC driver and test libraries as nee
 ## Fixes in this version
 
 - Opening **Patients** (or clicking a patient card on the dashboard) threw a `NullPointerException`; fixed.
-- Page titles and subtitles on Patients, Appointments, Doctors, Invoices and User accounts were hidden by a duplicate layout call; fixed.
+- Page titles and subtitles on Patients, Appointments, Doctors and User accounts are visible in the main workspace.
 - The main window could be taller than the screen (1360×850 on a 1366×768 laptop), pushing **Sign out** off-screen; it now fits the screen and has a second Sign out button.
 - The close button no longer traps you in a sign-out loop; it offers Sign out / Exit / Cancel.
 - Each sign-in now gets its own event bus, so screens from a previous session no longer keep refreshing after sign-out.

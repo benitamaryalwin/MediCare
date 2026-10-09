@@ -5,5 +5,4 @@ public record DashboardStats(
         long activePatients,
         long followUpPatients,
         long appointmentsToday,
-        long doctorsAvailable,
-        long unpaidInvoices) { }
+        long doctorsAvailable) { }

@@ -4,10 +4,13 @@ CREATE TABLE IF NOT EXISTS app_users (
     display_name VARCHAR(120) NOT NULL,
     password_hash BYTEA NOT NULL,
     password_salt BYTEA NOT NULL,
-    role VARCHAR(12) NOT NULL CHECK (role IN ('ADMIN', 'USER')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('HEAD_DOCTOR', 'USER')),
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+ALTER TABLE app_users DROP CONSTRAINT IF EXISTS app_users_role_check;
+UPDATE app_users SET role = 'HEAD_DOCTOR' WHERE role = 'ADMIN';
+ALTER TABLE app_users ADD CONSTRAINT app_users_role_check CHECK (role IN ('HEAD_DOCTOR', 'USER'));
 
 CREATE TABLE IF NOT EXISTS patients (
     id BIGSERIAL PRIMARY KEY,
@@ -51,7 +54,6 @@ CREATE TABLE IF NOT EXISTS appointments (
     appointment_at TIMESTAMPTZ NOT NULL,
     visit_mode VARCHAR(20) NOT NULL DEFAULT 'Offline',
     status VARCHAR(32) NOT NULL DEFAULT 'Scheduled',
-    billed BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_id BIGINT REFERENCES patients(id) ON DELETE SET NULL;
@@ -76,17 +78,6 @@ CREATE TABLE IF NOT EXISTS consultations (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS consultations_owner_created_idx ON consultations(owner_user_id, created_at DESC);
+ALTER TABLE appointments DROP COLUMN IF EXISTS billed;
+DROP TABLE IF EXISTS invoices;
 
-CREATE TABLE IF NOT EXISTS invoices (
-    id BIGSERIAL PRIMARY KEY,
-    owner_user_id BIGINT NOT NULL REFERENCES app_users(id) ON DELETE RESTRICT,
-    appointment_id BIGINT REFERENCES appointments(id) ON DELETE SET NULL,
-    patient_name VARCHAR(120) NOT NULL,
-    doctor_name VARCHAR(120) NOT NULL,
-    consultation_fee NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (consultation_fee >= 0),
-    medication_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (medication_amount >= 0),
-    other_amount NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (other_amount >= 0),
-    payment_status VARCHAR(12) NOT NULL DEFAULT 'UNPAID' CHECK (payment_status IN ('PAID', 'UNPAID')),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS invoices_owner_created_idx ON invoices(owner_user_id, created_at DESC);

@@ -1,6 +1,6 @@
 package com.medicarepro.model;
 
 public enum Role {
-    ADMIN,
+    HEAD_DOCTOR,
     USER
 }

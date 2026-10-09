@@ -4,7 +4,6 @@ import com.medicarepro.data.Database;
 import com.medicarepro.data.DatabaseException;
 import com.medicarepro.model.*;
 
-import java.math.BigDecimal;
 import java.sql.*;
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -217,7 +216,7 @@ public final class ClinicRepository {
         String term = likeTerm(search);
         List<Appointment> appointments = new ArrayList<>();
         String sql = """
-                SELECT id, patient_id, doctor_id, patient_name, doctor_name, appointment_at, visit_mode, status, billed
+                SELECT id, patient_id, doctor_id, patient_name, doctor_name, appointment_at, visit_mode, status
                 FROM appointments a
                 WHERE (a.patient_name ILIKE ? OR a.doctor_name ILIKE ? OR a.status ILIKE ?)
                 """ + scope(actor, "a") + " ORDER BY a.appointment_at, a.id";
@@ -239,7 +238,7 @@ public final class ClinicRepository {
     public List<Appointment> listConsultationQueue(User actor) {
         List<Appointment> queue = new ArrayList<>();
         String sql = """
-                SELECT id, patient_id, doctor_id, patient_name, doctor_name, appointment_at, visit_mode, status, billed
+                SELECT id, patient_id, doctor_id, patient_name, doctor_name, appointment_at, visit_mode, status
                 FROM appointments a
                 WHERE a.status IN ('Scheduled', 'Yet to be Consulted', 'In Consultation')
                 """ + scope(actor, "a") + " ORDER BY a.appointment_at, a.id";
@@ -408,45 +407,6 @@ public final class ClinicRepository {
         }
     }
 
-    public void createInvoiceFromAppointment(User actor, long appointmentId,
-                                             BigDecimal fee, BigDecimal medication, BigDecimal other) {
-        validateMoney(fee, medication, other);
-        try (Connection connection = database.connect()) {
-            connection.setAutoCommit(false);
-            String select = """
-                    SELECT patient_name, doctor_name, status, billed, owner_user_id FROM appointments
-                    WHERE id = ?
-                    """ + scope(actor, "appointments") + " FOR UPDATE";
-            String patient;
-            String doctor;
-            long recordOwnerId;
-            try (PreparedStatement statement = connection.prepareStatement(select)) {
-                statement.setLong(1, appointmentId);
-                bindScope(statement, 2, actor);
-                try (ResultSet row = statement.executeQuery()) {
-                    if (!row.next()) throw new IllegalArgumentException("Appointment not found.");
-                    if (!"Completed".equals(row.getString("status"))) {
-                        throw new IllegalArgumentException("Complete the appointment before creating its invoice.");
-                    }
-                    if (row.getBoolean("billed")) throw new IllegalArgumentException("An invoice already exists for this appointment.");
-                    patient = row.getString("patient_name");
-                    doctor = row.getString("doctor_name");
-                    recordOwnerId = row.getLong("owner_user_id");
-                }
-            }
-            insertInvoice(connection, recordOwnerId, appointmentId, patient, doctor, fee, medication, other);
-            try (PreparedStatement update = connection.prepareStatement(
-                    "UPDATE appointments SET billed = TRUE WHERE id = ?" + scope(actor, "appointments"))) {
-                update.setLong(1, appointmentId);
-                bindScope(update, 2, actor);
-                update.executeUpdate();
-            }
-            connection.commit();
-        } catch (SQLException exception) {
-            throw databaseError("Could not create the appointment invoice.", exception);
-        }
-    }
-
     public List<Consultation> listConsultations(User actor) {
         List<Consultation> history = new ArrayList<>();
         String sql = """
@@ -580,87 +540,6 @@ public final class ClinicRepository {
         }
     }
 
-    public List<Invoice> listInvoices(User actor) {
-        List<Invoice> invoices = new ArrayList<>();
-        String sql = """
-                SELECT id, appointment_id, patient_name, doctor_name, consultation_fee, medication_amount,
-                       other_amount, payment_status, created_at
-                FROM invoices i WHERE TRUE
-                """ + scope(actor, "i") + " ORDER BY i.created_at DESC, i.id DESC";
-        try (Connection connection = database.connect();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            bindScope(statement, 1, actor);
-            try (ResultSet rows = statement.executeQuery()) {
-                while (rows.next()) invoices.add(readInvoice(rows));
-            }
-            return invoices;
-        } catch (SQLException exception) {
-            throw databaseError("Could not load invoices.", exception);
-        }
-    }
-
-    public void addInvoice(User actor, InvoiceInput input) {
-        if (input.patientName().isBlank() || input.doctorName().isBlank()) {
-            throw new IllegalArgumentException("Enter the patient and doctor names.");
-        }
-        validateMoney(input.consultationFee(), input.medicationAmount(), input.otherAmount());
-        try (Connection connection = database.connect()) {
-            insertInvoice(connection, actor.id(), null, input.patientName().trim(), input.doctorName().trim(),
-                    input.consultationFee(), input.medicationAmount(), input.otherAmount());
-        } catch (SQLException exception) {
-            throw databaseError("Could not create the invoice.", exception);
-        }
-    }
-
-    public void updateInvoice(User actor, long invoiceId, InvoiceInput input) {
-        if (input.patientName().isBlank() || input.doctorName().isBlank()) {
-            throw new IllegalArgumentException("Enter the patient and doctor names.");
-        }
-        validateMoney(input.consultationFee(), input.medicationAmount(), input.otherAmount());
-        String sql = """
-                UPDATE invoices SET patient_name = ?, doctor_name = ?, consultation_fee = ?,
-                    medication_amount = ?, other_amount = ?
-                WHERE id = ?
-                """ + scope(actor, "invoices");
-        try (Connection connection = database.connect();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, input.patientName().trim());
-            statement.setString(2, input.doctorName().trim());
-            statement.setBigDecimal(3, input.consultationFee());
-            statement.setBigDecimal(4, input.medicationAmount());
-            statement.setBigDecimal(5, input.otherAmount());
-            statement.setLong(6, invoiceId);
-            bindScope(statement, 7, actor);
-            if (statement.executeUpdate() != 1) throw new IllegalArgumentException("Invoice not found.");
-        } catch (SQLException exception) {
-            throw databaseError("Could not update the invoice.", exception);
-        }
-    }
-
-    public void markInvoicePaid(User actor, long invoiceId) {
-        try (Connection connection = database.connect();
-             PreparedStatement statement = connection.prepareStatement(
-                     "UPDATE invoices SET payment_status = 'PAID' WHERE id = ?" + scope(actor, "invoices"))) {
-            statement.setLong(1, invoiceId);
-            bindScope(statement, 2, actor);
-            if (statement.executeUpdate() != 1) throw new IllegalArgumentException("Invoice not found.");
-        } catch (SQLException exception) {
-            throw databaseError("Could not mark the invoice as paid.", exception);
-        }
-    }
-
-    public void deleteInvoice(User actor, long invoiceId) {
-        try (Connection connection = database.connect();
-             PreparedStatement statement = connection.prepareStatement(
-                     "DELETE FROM invoices WHERE id = ?" + scope(actor, "invoices"))) {
-            statement.setLong(1, invoiceId);
-            bindScope(statement, 2, actor);
-            if (statement.executeUpdate() != 1) throw new IllegalArgumentException("Invoice not found.");
-        } catch (SQLException exception) {
-            throw databaseError("Could not delete the invoice.", exception);
-        }
-    }
-
     public DashboardStats dashboardStats(User actor) {
         String sql = """
                 SELECT
@@ -679,15 +558,11 @@ public final class ClinicRepository {
                     ) AS appointments_today,
                     (SELECT COUNT(*) FROM doctors d WHERE d.status = 'Available'
                 """ + scope(actor, "d") + """
-                    ) AS doctors_available,
-                    (SELECT COUNT(*) FROM invoices i WHERE i.payment_status = 'UNPAID'
-                """ + scope(actor, "i") + """
-                    ) AS unpaid_invoices
+                    ) AS doctors_available
                 """;
         try (Connection connection = database.connect();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             int parameter = 1;
-            parameter = bindScope(statement, parameter, actor);
             parameter = bindScope(statement, parameter, actor);
             parameter = bindScope(statement, parameter, actor);
             parameter = bindScope(statement, parameter, actor);
@@ -697,7 +572,7 @@ public final class ClinicRepository {
                 row.next();
                 return new DashboardStats(row.getLong("patients"), row.getLong("active_patients"),
                         row.getLong("follow_up_patients"), row.getLong("appointments_today"),
-                        row.getLong("doctors_available"), row.getLong("unpaid_invoices"));
+                        row.getLong("doctors_available"));
             }
         } catch (SQLException exception) {
             throw databaseError("Could not load dashboard totals.", exception);
@@ -783,27 +658,6 @@ public final class ClinicRepository {
         }
     }
 
-    private void insertInvoice(Connection connection, long ownerUserId, Long appointmentId, String patient,
-                               String doctor, BigDecimal fee, BigDecimal medication, BigDecimal other)
-            throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("""
-                INSERT INTO invoices
-                    (owner_user_id, appointment_id, patient_name, doctor_name, consultation_fee,
-                     medication_amount, other_amount)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """)) {
-            statement.setLong(1, ownerUserId);
-            if (appointmentId == null) statement.setNull(2, Types.BIGINT);
-            else statement.setLong(2, appointmentId);
-            statement.setString(3, patient);
-            statement.setString(4, doctor);
-            statement.setBigDecimal(5, fee);
-            statement.setBigDecimal(6, medication);
-            statement.setBigDecimal(7, other);
-            statement.executeUpdate();
-        }
-    }
-
     private void updateAppointmentStatus(User actor, long appointmentId, String status, String updateSql) {
         try (Connection connection = database.connect();
              PreparedStatement statement = connection.prepareStatement(updateSql + scope(actor, "appointments"))) {
@@ -832,7 +686,7 @@ public final class ClinicRepository {
         return new Appointment(row.getLong("id"), patientId, doctorId,
                 row.getString("patient_name"), row.getString("doctor_name"),
                 row.getObject("appointment_at", OffsetDateTime.class), row.getString("visit_mode"),
-                row.getString("status"), row.getBoolean("billed"));
+                row.getString("status"));
     }
 
     private static Consultation readConsultation(ResultSet row) throws SQLException {
@@ -843,17 +697,6 @@ public final class ClinicRepository {
                 row.getString("complaints"), row.getString("diagnosis"), row.getString("medication"),
                 row.getObject("follow_up_date", java.time.LocalDate.class), row.getString("notes"),
                 row.getString("source"), row.getObject("created_at", OffsetDateTime.class));
-    }
-
-    private static Invoice readInvoice(ResultSet row) throws SQLException {
-        long appointmentValue = row.getLong("appointment_id");
-        Long appointmentId = row.wasNull() ? null : appointmentValue;
-        BigDecimal fee = row.getBigDecimal("consultation_fee");
-        BigDecimal medication = row.getBigDecimal("medication_amount");
-        BigDecimal other = row.getBigDecimal("other_amount");
-        return new Invoice(row.getLong("id"), appointmentId, row.getString("patient_name"),
-                row.getString("doctor_name"), fee, medication, other, fee.add(medication).add(other),
-                row.getString("payment_status"), row.getObject("created_at", OffsetDateTime.class));
     }
 
     private static void validatePatient(PatientInput input) {
@@ -881,14 +724,6 @@ public final class ClinicRepository {
         statement.setString(start + 6, clean(input.diagnosis()));
         statement.setString(start + 7, input.status());
         statement.setString(start + 8, input.source());
-    }
-
-    private static void validateMoney(BigDecimal... amounts) {
-        for (BigDecimal amount : amounts) {
-            if (amount == null || amount.signum() < 0 || amount.scale() > 2) {
-                throw new IllegalArgumentException("Amounts must be non-negative and use no more than two decimal places.");
-            }
-        }
     }
 
     private static String scope(User actor, String alias) {

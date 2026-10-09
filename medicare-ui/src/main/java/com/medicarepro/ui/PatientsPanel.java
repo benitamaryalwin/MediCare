@@ -7,7 +7,6 @@ import com.medicarepro.service.ClinicEvents;
 import com.medicarepro.service.ClinicRepository;
 
 import javax.swing.*;
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 

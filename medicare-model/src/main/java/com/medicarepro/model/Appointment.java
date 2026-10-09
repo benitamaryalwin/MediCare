@@ -10,5 +10,4 @@ public record Appointment(
         String doctorName,
         OffsetDateTime appointmentAt,
         String visitMode,
-        String status,
-        boolean billed) { }
+        String status) { }

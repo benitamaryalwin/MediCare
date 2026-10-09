@@ -73,13 +73,12 @@ public final class MainFrame extends JFrame {
         addNavigation(navigation, "appointments", "Appointments");
         addNavigation(navigation, "consultations", "Consultations");
         addNavigation(navigation, "doctors", "Doctors");
-        addNavigation(navigation, "invoices", "Invoices");
         if (user.isAdmin()) addNavigation(navigation, "accounts", "User accounts");
         side.add(navigation, BorderLayout.CENTER);
         JPanel bottom = new JPanel(new BorderLayout(4, 9));
         bottom.setOpaque(false);
         JLabel profile = new JLabel("<html><b>" + escape(user.displayName()) + "</b><br><span style='color:#b7cec7'>"
-                + (user.isAdmin() ? "Administrator" : "User · " + escape(user.username())) + "</span></html>");
+                + (user.isHeadDoctor() ? "Head Doctor" : "User · " + escape(user.username())) + "</span></html>");
         profile.setForeground(Color.WHITE);
         profile.setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 4));
         JButton signOut = new JButton("Sign out");
@@ -151,7 +150,6 @@ public final class MainFrame extends JFrame {
             case "appointments" -> "Appointments";
             case "consultations" -> "Consultations";
             case "doctors" -> "Doctor directory";
-            case "invoices" -> "Invoices";
             case "accounts" -> "User accounts";
             default -> "Workspace";
         };

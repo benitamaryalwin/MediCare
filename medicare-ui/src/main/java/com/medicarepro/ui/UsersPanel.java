@@ -19,7 +19,7 @@ public final class UsersPanel extends RecordPanel<UserSummary> {
         super("User accounts", COLUMNS, UsersPanel::row, events);
         this.authService = authService;
         this.admin = admin;
-        setSubtitle("Administrator only · create separate logins and disable accounts without deleting their records.");
+        setSubtitle("Head Doctor only · create separate logins and disable accounts without deleting their records.");
         addActionButton("Reset password", () -> withSelected(this::resetPassword));
         addActionButton("Enable / disable", () -> withSelected(this::toggleAccount));
         addActionButton("Export CSV", () -> CsvExporter.export(this, table, "medicare-users.csv"));

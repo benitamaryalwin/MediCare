@@ -14,10 +14,10 @@ public final class SetupAdminFrame extends JFrame {
     private final JTextField username = new JTextField(22);
     private final JPasswordField password = new JPasswordField(22);
     private final JPasswordField confirm = new JPasswordField(22);
-    private final JButton createButton = new JButton("Create administrator");
+    private final JButton createButton = new JButton("Create head doctor");
 
     public SetupAdminFrame(AuthService authService, Runnable continueToLogin) {
-        super("First-time setup · MediCare Pro");
+        super("Head Doctor setup · MediCare Pro");
         this.authService = authService;
         this.continueToLogin = continueToLogin;
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
@@ -41,12 +41,12 @@ public final class SetupAdminFrame extends JFrame {
         c.gridwidth = 2;
         c.anchor = GridBagConstraints.WEST;
         c.insets = new Insets(0, 0, 7, 0);
-        JLabel title = new JLabel("Create your administrator login");
+        JLabel title = new JLabel("Create the head doctor login");
         title.setFont(new Font("SansSerif", Font.BOLD, 20));
         card.add(title, c);
         c.gridy++;
         c.insets = new Insets(0, 0, 16, 0);
-        JLabel note = new JLabel("This first account can create users and view all accounts' records.");
+        JLabel note = new JLabel("This account can create users and manage every patient's records.");
         note.setForeground(SwingTheme.MUTED);
         card.add(note, c);
         c.gridwidth = 1;
@@ -105,7 +105,7 @@ public final class SetupAdminFrame extends JFrame {
                 try {
                     get();
                     JOptionPane.showMessageDialog(SetupAdminFrame.this,
-                            "Administrator created. Sign in with the new account.",
+                            "Head Doctor account created. Sign in with the new account.",
                             "Setup complete", JOptionPane.INFORMATION_MESSAGE);
                     dispose();
                     continueToLogin.run();

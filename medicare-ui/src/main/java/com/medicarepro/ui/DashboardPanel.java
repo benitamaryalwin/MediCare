@@ -19,7 +19,7 @@ public final class DashboardPanel extends JPanel implements Refreshable {
     private final ClinicRepository repository;
     private final User user;
     private final Consumer<String> navigate;
-    private final JLabel[] values = new JLabel[6];
+    private final JLabel[] values = new JLabel[5];
     private final JTable recentTable = new JTable(new DefaultTableModel(
             new Object[]{"Patient", "Doctor", "Time", "Status"}, 0) {
         @Override public boolean isCellEditable(int row, int column) { return false; }
@@ -64,8 +64,8 @@ public final class DashboardPanel extends JPanel implements Refreshable {
         JPanel cards = new JPanel(new GridLayout(2, 3, 12, 12));
         cards.setOpaque(false);
         String[] labels = {"Total patients", "Active patients", "Follow-up patients",
-                "Appointments today", "Doctors available", "Unpaid invoices"};
-        String[] routes = {"patients", "patients", "patients", "appointments", "doctors", "invoices"};
+                "Appointments today", "Doctors available"};
+        String[] routes = {"patients", "patients", "patients", "appointments", "doctors"};
         for (int i = 0; i < labels.length; i++) {
             final int cardIndex = i;
             JPanel card = new JPanel(new BorderLayout(8, 8));
@@ -135,7 +135,7 @@ public final class DashboardPanel extends JPanel implements Refreshable {
                     Snapshot snapshot = get();
                     DashboardStats stats = snapshot.stats();
                     long[] counts = {stats.patients(), stats.activePatients(), stats.followUpPatients(),
-                            stats.appointmentsToday(), stats.doctorsAvailable(), stats.unpaidInvoices()};
+                            stats.appointmentsToday(), stats.doctorsAvailable()};
                     for (int i = 0; i < counts.length; i++) values[i].setText(String.valueOf(counts[i]));
                     DefaultTableModel model = (DefaultTableModel) recentTable.getModel();
                     model.setRowCount(0);

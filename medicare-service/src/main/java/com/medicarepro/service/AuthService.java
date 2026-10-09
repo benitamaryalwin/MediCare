@@ -27,7 +27,7 @@ public final class AuthService {
     public boolean hasAdminAccount() {
         try (Connection connection = database.connect();
              PreparedStatement statement = connection.prepareStatement(
-                     "SELECT EXISTS (SELECT 1 FROM app_users WHERE role = 'ADMIN')")) {
+                     "SELECT EXISTS (SELECT 1 FROM app_users WHERE role = 'HEAD_DOCTOR')")) {
             try (ResultSet row = statement.executeQuery()) {
                 row.next();
                 return row.getBoolean(1);
@@ -46,14 +46,14 @@ public final class AuthService {
                 lock.execute("SELECT pg_advisory_xact_lock(78392041)");
             }
             try (PreparedStatement exists = connection.prepareStatement(
-                    "SELECT EXISTS (SELECT 1 FROM app_users WHERE role = 'ADMIN')");
+                    "SELECT EXISTS (SELECT 1 FROM app_users WHERE role = 'HEAD_DOCTOR')");
                  ResultSet row = exists.executeQuery()) {
                 row.next();
                 if (row.getBoolean(1)) {
                     throw new IllegalStateException("An administrator account already exists.");
                 }
             }
-            insertUser(connection, username, displayName, credentials, Role.ADMIN);
+            insertUser(connection, username, displayName, credentials, Role.HEAD_DOCTOR);
             connection.commit();
         } catch (SQLException exception) {
             throw translateAccountError("Could not create the administrator account.", exception);

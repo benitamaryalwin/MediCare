@@ -20,6 +20,7 @@ public final class UsersPanel extends RecordPanel<UserSummary> {
         this.authService = authService;
         this.admin = admin;
         setSubtitle("Head Doctor only · create separate logins and disable accounts without deleting their records.");
+        addActionButton("Create receptionist", this::createReceptionist);
         addActionButton("Reset password", () -> withSelected(this::resetPassword));
         addActionButton("Enable / disable", () -> withSelected(this::toggleAccount));
         addActionButton("Export CSV", () -> CsvExporter.export(this, table, "medicare-users.csv"));
@@ -37,31 +38,15 @@ public final class UsersPanel extends RecordPanel<UserSummary> {
     }
 
     @Override protected void onAdd() {
-        Map<String, String> values = FormDialogs.show(this, "Create user account",
-                List.of(FieldSpec.text("username", "Username", ""),
-                        FieldSpec.text("displayName", "Display name", "")));
+        createReceptionist();
+    }
+
+    private void createReceptionist() {
+        Map<String, String> values = FormDialogs.show(this, "Create receptionist login",
+                List.of(FieldSpec.text("receptionistId", "Receptionist ID", ""),
+                        FieldSpec.text("displayName", "Full name", "")));
         if (values == null) return;
-        char[] password = FormDialogs.askPassword(this, "Set initial password", "Password (at least 10 characters)");
-        if (password == null) return;
-        char[] confirm = FormDialogs.askPassword(this, "Confirm password", "Enter the same password again");
-        if (confirm == null) {
-            Arrays.fill(password, '\0');
-            return;
-        }
-        if (!Arrays.equals(password, confirm)) {
-            Arrays.fill(password, '\0');
-            Arrays.fill(confirm, '\0');
-            FormDialogs.showError(this, new IllegalArgumentException("The passwords do not match."));
-            return;
-        }
-        Arrays.fill(confirm, '\0');
-        runAsync("User account creation", () -> {
-            try {
-                authService.createUser(admin, values.get("username"), values.get("displayName"), password);
-            } finally {
-                Arrays.fill(password, '\0');
-            }
-        });
+        runAsync("Receptionist creation", () -> authService.createReceptionist(admin, values.get("displayName"), values.get("receptionistId")));
     }
 
     private void resetPassword(UserSummary account) {

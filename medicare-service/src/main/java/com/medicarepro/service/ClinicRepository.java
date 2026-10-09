@@ -117,13 +117,12 @@ public final class ClinicRepository {
                 SELECT id, name, specialization, qualifications, experience_years, phone, status
                 FROM doctors d
                 WHERE (d.name ILIKE ? OR d.specialization ILIKE ? OR d.phone ILIKE ?)
-                """ + scope(actor, "d") + " ORDER BY d.name";
+                """ + " ORDER BY d.name";
         try (Connection connection = database.connect();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, term);
             statement.setString(2, term);
             statement.setString(3, term);
-            bindScope(statement, 4, actor);
             try (ResultSet rows = statement.executeQuery()) {
                 while (rows.next()) doctors.add(new Doctor(rows.getLong("id"), rows.getString("name"),
                         rows.getString("specialization"), rows.getString("qualifications"),
@@ -136,6 +135,7 @@ public final class ClinicRepository {
     }
 
     public void addDoctor(User actor, DoctorInput input) {
+        requireAdmin(actor);
         if (input.name().isBlank() || input.specialization().isBlank()) {
             throw new IllegalArgumentException("Enter a doctor name and specialization.");
         }
@@ -161,6 +161,7 @@ public final class ClinicRepository {
     }
 
     public void cycleDoctorStatus(User actor, long doctorId) {
+        requireAdmin(actor);
         String sql = "UPDATE doctors SET status = CASE status WHEN 'Available' THEN 'In Consultation' " +
                 "WHEN 'In Consultation' THEN 'On Leave' ELSE 'Available' END WHERE id = ?" + scope(actor, "doctors");
         try (Connection connection = database.connect();
@@ -174,6 +175,7 @@ public final class ClinicRepository {
     }
 
     public void updateDoctor(User actor, long doctorId, DoctorInput input) {
+        requireAdmin(actor);
         if (input.name().isBlank() || input.specialization().isBlank()) {
             throw new IllegalArgumentException("Enter a doctor name and specialization.");
         }
@@ -201,6 +203,7 @@ public final class ClinicRepository {
     }
 
     public void deleteDoctor(User actor, long doctorId) {
+        requireAdmin(actor);
         try (Connection connection = database.connect();
              PreparedStatement statement = connection.prepareStatement(
                      "DELETE FROM doctors WHERE id = ?" + scope(actor, "doctors"))) {
@@ -552,12 +555,7 @@ public final class ClinicRepository {
                     (SELECT COUNT(*) FROM patients p WHERE p.status = 'Follow Up'
                 """ + scope(actor, "p") + """
                     ) AS follow_up_patients,
-                    (SELECT COUNT(*) FROM appointments a
-                     WHERE a.appointment_at::date = CURRENT_DATE
-                """ + scope(actor, "a") + """
-                    ) AS appointments_today,
                     (SELECT COUNT(*) FROM doctors d WHERE d.status = 'Available'
-                """ + scope(actor, "d") + """
                     ) AS doctors_available
                 """;
         try (Connection connection = database.connect();
@@ -566,13 +564,10 @@ public final class ClinicRepository {
             parameter = bindScope(statement, parameter, actor);
             parameter = bindScope(statement, parameter, actor);
             parameter = bindScope(statement, parameter, actor);
-            parameter = bindScope(statement, parameter, actor);
-            bindScope(statement, parameter, actor);
             try (ResultSet row = statement.executeQuery()) {
                 row.next();
                 return new DashboardStats(row.getLong("patients"), row.getLong("active_patients"),
-                        row.getLong("follow_up_patients"), row.getLong("appointments_today"),
-                        row.getLong("doctors_available"));
+                        row.getLong("follow_up_patients"), row.getLong("doctors_available"));
             }
         } catch (SQLException exception) {
             throw databaseError("Could not load dashboard totals.", exception);
@@ -585,10 +580,9 @@ public final class ClinicRepository {
             List<Doctor> doctors = new ArrayList<>();
             try (PreparedStatement statement = connection.prepareStatement("""
                     SELECT id, name, specialization, qualifications, experience_years, phone, status
-                    FROM doctors WHERE owner_user_id = ? AND status = 'Available'
+                    FROM doctors WHERE status = 'Available'
                     ORDER BY name, id
                     """)) {
-                statement.setLong(1, ownerId);
                 try (ResultSet rows = statement.executeQuery()) {
                     while (rows.next()) doctors.add(new Doctor(rows.getLong("id"), rows.getString("name"),
                             rows.getString("specialization"), rows.getString("qualifications"),
@@ -615,18 +609,14 @@ public final class ClinicRepository {
                 patientName = row.getString("name");
             }
         }
-        String doctorSql = "SELECT owner_user_id, name, status FROM doctors d WHERE d.id = ?" + scope(actor, "d");
+        String doctorSql = "SELECT owner_user_id, name, status FROM doctors d WHERE d.id = ?";
         String doctorName;
         try (PreparedStatement statement = connection.prepareStatement(doctorSql)) {
             statement.setLong(1, doctorId);
-            bindScope(statement, 2, actor);
             try (ResultSet row = statement.executeQuery()) {
                 if (!row.next()) throw new IllegalArgumentException("Select a doctor from your doctor directory.");
                 if (!"Available".equals(row.getString("status"))) {
                     throw new IllegalArgumentException("That doctor is not currently available.");
-                }
-                if (row.getLong("owner_user_id") != patientOwnerId) {
-                    throw new IllegalArgumentException("Choose a doctor from the same account as the patient.");
                 }
                 doctorName = row.getString("name");
             }
@@ -728,6 +718,12 @@ public final class ClinicRepository {
 
     private static String scope(User actor, String alias) {
         return actor.isAdmin() ? "" : " AND " + alias + ".owner_user_id = ?";
+    }
+
+    private static void requireAdmin(User actor) {
+        if (actor == null || !actor.isAdmin()) {
+            throw new SecurityException("Only the Head Doctor can add, edit, remove, or update doctor availability.");
+        }
     }
 
     private static int bindScope(PreparedStatement statement, int parameter, User actor) throws SQLException {

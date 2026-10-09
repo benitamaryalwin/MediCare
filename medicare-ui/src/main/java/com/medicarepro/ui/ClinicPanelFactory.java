@@ -25,7 +25,6 @@ public final class ClinicPanelFactory {
             case "dashboard" -> new DashboardPanel(repository, user, events, navigate);
             case "patients" -> new PatientsPanel(repository, user, events);
             case "appointments" -> new AppointmentsPanel(repository, user, events);
-            case "consultations" -> new ConsultationsPanel(repository, user, events);
             case "doctors" -> new DoctorsPanel(repository, user, events);
             case "accounts" -> {
                 if (!user.isAdmin()) throw new SecurityException("Only administrators can manage accounts.");

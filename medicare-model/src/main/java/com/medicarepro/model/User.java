@@ -8,4 +8,12 @@ public record User(long id, String username, String displayName, Role role, bool
     public boolean isHeadDoctor() {
         return role == Role.HEAD_DOCTOR;
     }
+
+    public boolean isReceptionist() {
+        return role == Role.RECEPTIONIST;
+    }
+
+    public boolean isPatient() {
+        return role == Role.PATIENT;
+    }
 }

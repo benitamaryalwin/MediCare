@@ -2,15 +2,20 @@ CREATE TABLE IF NOT EXISTS app_users (
     id BIGSERIAL PRIMARY KEY,
     username VARCHAR(60) NOT NULL UNIQUE,
     display_name VARCHAR(120) NOT NULL,
-    password_hash BYTEA NOT NULL,
-    password_salt BYTEA NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('HEAD_DOCTOR', 'USER')),
+    password_hash BYTEA,
+    password_salt BYTEA,
+    login_id VARCHAR(60),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('HEAD_DOCTOR', 'USER', 'RECEPTIONIST', 'PATIENT')),
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 ALTER TABLE app_users DROP CONSTRAINT IF EXISTS app_users_role_check;
 UPDATE app_users SET role = 'HEAD_DOCTOR' WHERE role = 'ADMIN';
-ALTER TABLE app_users ADD CONSTRAINT app_users_role_check CHECK (role IN ('HEAD_DOCTOR', 'USER'));
+ALTER TABLE app_users ADD COLUMN IF NOT EXISTS login_id VARCHAR(60);
+ALTER TABLE app_users ALTER COLUMN password_hash DROP NOT NULL;
+ALTER TABLE app_users ALTER COLUMN password_salt DROP NOT NULL;
+ALTER TABLE app_users ADD CONSTRAINT app_users_role_check CHECK (role IN ('HEAD_DOCTOR', 'USER', 'RECEPTIONIST', 'PATIENT'));
+CREATE UNIQUE INDEX IF NOT EXISTS app_users_login_id_unique ON app_users (LOWER(login_id)) WHERE login_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS patients (
     id BIGSERIAL PRIMARY KEY,
@@ -43,6 +48,21 @@ CREATE TABLE IF NOT EXISTS doctors (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS doctors_owner_name_idx ON doctors(owner_user_id, name);
+INSERT INTO doctors (owner_user_id, name, specialization, qualifications, experience_years, phone, status)
+SELECT u.id, 'Dr. Ananya Rao', 'General Medicine', 'MBBS, MD', 12, '90000 10001', 'Available'
+FROM app_users u
+WHERE u.role = 'HEAD_DOCTOR'
+  AND NOT EXISTS (SELECT 1 FROM doctors WHERE name = 'Dr. Ananya Rao');
+INSERT INTO doctors (owner_user_id, name, specialization, qualifications, experience_years, phone, status)
+SELECT u.id, 'Dr. Vikram Shah', 'Cardiology', 'MBBS, DM', 15, '90000 10002', 'Available'
+FROM app_users u
+WHERE u.role = 'HEAD_DOCTOR'
+  AND NOT EXISTS (SELECT 1 FROM doctors WHERE name = 'Dr. Vikram Shah');
+INSERT INTO doctors (owner_user_id, name, specialization, qualifications, experience_years, phone, status)
+SELECT u.id, 'Dr. Meera Nair', 'Pediatrics', 'MBBS, DCH', 9, '90000 10003', 'Available'
+FROM app_users u
+WHERE u.role = 'HEAD_DOCTOR'
+  AND NOT EXISTS (SELECT 1 FROM doctors WHERE name = 'Dr. Meera Nair');
 
 CREATE TABLE IF NOT EXISTS appointments (
     id BIGSERIAL PRIMARY KEY,

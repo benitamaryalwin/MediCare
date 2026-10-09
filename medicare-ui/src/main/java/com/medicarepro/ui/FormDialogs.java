@@ -75,8 +75,11 @@ public final class FormDialogs {
         Throwable cause = error;
         while (cause.getCause() != null && cause.getCause() != cause) cause = cause.getCause();
         String message = cause.getMessage();
+        String friendly = message == null || message.isBlank()
+                ? "We could not complete that action. Please check the details and try again."
+                : message;
         JOptionPane.showMessageDialog(parent,
-                message == null || message.isBlank() ? "The action could not be completed." : message,
-                "MediCare Pro", JOptionPane.ERROR_MESSAGE);
+                friendly + "\n\nNo changes were saved.",
+                "Could not complete action", JOptionPane.ERROR_MESSAGE);
     }
 }

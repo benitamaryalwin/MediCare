@@ -19,8 +19,21 @@ public final class DoctorsPanel extends RecordPanel<Doctor> {
         super("Doctor directory", COLUMNS, DoctorsPanel::row, events);
         this.repository = repository;
         this.user = user;
-        addActionButton("Cycle availability", () -> withSelected(doctor ->
-                runAsync("Availability update", () -> repository.cycleDoctorStatus(user, doctor.id()))));
+        setColumnWidths(60, 190, 170, 180, 100, 130, 110);
+        setSubtitle(user.isAdmin()
+                ? "Head Doctor only · manage doctors, specializations, and availability."
+                : "View the doctor directory. Only the Head Doctor can change doctor records.");
+        if (user.isAdmin()) {
+            addActionButton("Cycle availability", () -> withSelected(doctor ->
+                    runAsync("Availability update", () -> repository.cycleDoctorStatus(user, doctor.id()))));
+        } else {
+            for (java.awt.Component component : toolbar.getComponents()) {
+                if (component instanceof JButton button &&
+                        java.util.Set.of("Add", "Edit", "Delete").contains(button.getText())) {
+                    button.setVisible(false);
+                }
+            }
+        }
         addActionButton("Export CSV", () -> CsvExporter.export(this, table, "medicare-doctors.csv"));
     }
 

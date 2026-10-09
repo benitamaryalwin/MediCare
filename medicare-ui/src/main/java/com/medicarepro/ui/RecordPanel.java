@@ -24,31 +24,58 @@ public abstract class RecordPanel<T> extends JPanel implements Refreshable {
     protected RecordPanel(String title, String[] columns, java.util.function.Function<T, Object[]> rowAdapter,
                           ClinicEvents events) {
         super(new BorderLayout(14, 14));
+        setBackground(SwingTheme.PAPER);
         this.events = events;
         setBorder(BorderFactory.createEmptyBorder(22, 26, 22, 26));
         tableModel = new RecordTableModel<>(columns, rowAdapter);
         table = new JTable(tableModel);
-        table.setRowHeight(34);
+        table.setRowHeight(42);
+        table.setIntercellSpacing(new Dimension(0, 1));
+        table.setShowGrid(false);
         table.setAutoCreateRowSorter(true);
         table.setFillsViewportHeight(true);
         table.getTableHeader().setReorderingAllowed(false);
-        table.getTableHeader().setBackground(new Color(239, 243, 239));
+        table.getTableHeader().setBackground(new Color(231, 240, 238));
         table.getTableHeader().setForeground(SwingTheme.MUTED);
+        table.getTableHeader().setPreferredSize(new Dimension(0, 42));
+        table.getTableHeader().setBorder(BorderFactory.createEmptyBorder(0, 8, 0, 8));
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override public Component getTableCellRendererComponent(JTable source, Object value,
                     boolean selected, boolean focus, int row, int column) {
                 Component component = super.getTableCellRendererComponent(source, value, selected, focus, row, column);
-                if (!selected) component.setBackground(row % 2 == 0 ? SwingTheme.WHITE : new Color(250, 251, 248));
+                if (!selected) component.setBackground(row % 2 == 0 ? SwingTheme.WHITE : new Color(246, 250, 249));
+                if (value != null && (String.valueOf(value).equalsIgnoreCase("Available")
+                        || String.valueOf(value).equalsIgnoreCase("Active")
+                        || String.valueOf(value).equalsIgnoreCase("Completed"))) {
+                    component.setForeground(new Color(20, 126, 92));
+                    component.setFont(component.getFont().deriveFont(Font.BOLD));
+                } else if (value != null && (String.valueOf(value).equalsIgnoreCase("Discharged")
+                        || String.valueOf(value).equalsIgnoreCase("Missed")
+                        || String.valueOf(value).equalsIgnoreCase("Disabled"))) {
+                    component.setForeground(new Color(181, 79, 72));
+                } else if (!selected) {
+                    component.setForeground(SwingTheme.INK);
+                }
                 setBorder(BorderFactory.createEmptyBorder(0, 9, 0, 9));
                 return component;
             }
         });
         add(header(title), BorderLayout.NORTH);
-        add(new JScrollPane(table), BorderLayout.CENTER);
+        JScrollPane tableScroll = new JScrollPane(table);
+        tableScroll.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(SwingTheme.LINE),
+                BorderFactory.createEmptyBorder(1, 1, 1, 1)));
+        tableScroll.getViewport().setBackground(Color.WHITE);
+        UiKit.RoundedPanel tableCard = UiKit.surface(new BorderLayout(), 16, Color.WHITE);
+        tableCard.setBorder(BorderFactory.createEmptyBorder(1, 1, 1, 1));
+        tableCard.add(tableScroll, BorderLayout.CENTER);
+        add(tableCard, BorderLayout.CENTER);
         JPanel footer = new JPanel(new BorderLayout());
         footer.setOpaque(false);
         footer.add(countLabel, BorderLayout.WEST);
+        countLabel.setForeground(SwingTheme.MUTED);
+        countLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
         add(footer, BorderLayout.SOUTH);
         if (supportsAdd()) addToolbarButton("Add", () -> onAdd());
         if (supportsEdit()) addToolbarButton("Edit", () -> withSelected(this::onEdit));
@@ -95,8 +122,22 @@ public abstract class RecordPanel<T> extends JPanel implements Refreshable {
         addToolbarButton(label, action);
     }
 
+    protected final void setColumnWidths(int... widths) {
+        for (int i = 0; i < widths.length && i < table.getColumnModel().getColumnCount(); i++) {
+            if (widths[i] > 0) {
+                table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+                table.getColumnModel().getColumn(i).setMinWidth(Math.min(widths[i], 52));
+            }
+        }
+    }
+
     protected void addToolbarButton(String label, Runnable action) {
         JButton button = new JButton(label);
+        button.setMargin(new Insets(8, 14, 8, 14));
+        button.setFocusPainted(false);
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(SwingTheme.LINE),
+                BorderFactory.createEmptyBorder(3, 8, 3, 8)));
         button.addActionListener(event -> action.run());
         toolbar.add(button);
     }
@@ -171,7 +212,7 @@ public abstract class RecordPanel<T> extends JPanel implements Refreshable {
                     countLabel.setText(rows.size() + (rows.size() == 1 ? " record" : " records"));
                 } catch (Exception error) {
                     tableModel.replaceRows(List.of());
-                    countLabel.setText("Could not load records");
+                    countLabel.setText("Unable to load records");
                     FormDialogs.showError(RecordPanel.this, error);
                 }
             }

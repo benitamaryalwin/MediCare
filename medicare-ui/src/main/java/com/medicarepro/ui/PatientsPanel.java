@@ -2,6 +2,7 @@ package com.medicarepro.ui;
 
 import com.medicarepro.model.Patient;
 import com.medicarepro.model.PatientInput;
+import com.medicarepro.model.Doctor;
 import com.medicarepro.model.User;
 import com.medicarepro.service.ClinicEvents;
 import com.medicarepro.service.ClinicRepository;
@@ -19,6 +20,7 @@ public final class PatientsPanel extends RecordPanel<Patient> {
         super("Patient records", COLUMNS, PatientsPanel::row, events);
         this.repository = repository;
         this.user = user;
+        setColumnWidths(90, 170, 55, 90, 130, 150, 100, 110, 90);
         setSubtitle(user.isAdmin()
                 ? "Administrator view · all accounts · register, search, update, and remove patients."
                 : "Register, search, update, and remove patients in your private workspace.");
@@ -61,20 +63,29 @@ public final class PatientsPanel extends RecordPanel<Patient> {
     }
 
     private Map<String, String> patientForm(Patient patient) {
+        List<String> doctorChoices = new java.util.ArrayList<>();
+        doctorChoices.add("Not assigned");
+        repository.listDoctors(user, "").stream()
+                .filter(doctor -> "Available".equals(doctor.status()))
+                .map(Doctor::name)
+                .forEach(doctorChoices::add);
+        String defaultDoctor = patient == null
+                ? (user.isPatient() && doctorChoices.size() > 1 ? doctorChoices.get(1) : "Not assigned")
+                : patient.doctor();
         return FormDialogs.show(this, patient == null ? "Register patient" : "Update patient",
                 List.of(
-                        FieldSpec.text("name", "Full name *", patient == null ? "" : patient.name()),
+                        FieldSpec.text("name", "Full name *", patient == null && user.isPatient() ? user.displayName() : (patient == null ? "" : patient.name())),
                         FieldSpec.text("age", "Age *", patient == null ? "" : String.valueOf(patient.age())),
                         FieldSpec.choice("gender", "Gender", patient == null ? "Not specified" : patient.gender(),
                                 "Not specified", "Female", "Male", "Other"),
                         FieldSpec.text("contact", "Contact *", patient == null ? "" : patient.contact()),
-                        FieldSpec.text("doctor", "Doctor", patient == null ? "" : patient.doctor()),
+                        FieldSpec.choice("doctor", "Available doctor", defaultDoctor, doctorChoices.toArray(String[]::new)),
                         FieldSpec.choice("visit", "Visit type", patient == null ? "First Visit" : patient.visitType(),
                                 "First Visit", "Follow-up"),
                         FieldSpec.multiline("diagnosis", "Diagnosis / notes", patient == null ? "" : patient.diagnosis()),
                         FieldSpec.choice("status", "Patient status", patient == null ? "Active" : patient.status(),
                                 "Active", "Follow Up", "Discharged"),
-                        FieldSpec.choice("source", "Registration source", patient == null ? "Offline" : patient.source(),
+                        FieldSpec.choice("source", "Registration source", patient == null && user.isPatient() ? "Online" : (patient == null ? "Offline" : patient.source()),
                                 "Offline", "Online")
                 ));
     }

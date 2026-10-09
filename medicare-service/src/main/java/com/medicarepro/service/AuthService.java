@@ -53,7 +53,8 @@ public final class AuthService {
                     throw new IllegalStateException("An administrator account already exists.");
                 }
             }
-            insertUser(connection, username, displayName, credentials, Role.HEAD_DOCTOR);
+            UserSummary admin = insertUser(connection, username, displayName, credentials, Role.HEAD_DOCTOR);
+            seedDemoDoctors(connection, admin.id());
             connection.commit();
         } catch (SQLException exception) {
             throw translateAccountError("Could not create the administrator account.", exception);
@@ -79,6 +80,86 @@ public final class AuthService {
             }
         } catch (SQLException exception) {
             throw new DatabaseException("Could not sign in to MediCare Pro.", exception);
+        }
+    }
+
+    /** Passwordless identity login used by receptionists and patients. */
+    public User authenticateByNameAndId(String displayName, String loginId, Role role) {
+        if (displayName == null || displayName.isBlank() || loginId == null || loginId.isBlank()) return null;
+        if (role != Role.RECEPTIONIST && role != Role.PATIENT) {
+            throw new IllegalArgumentException("Unsupported passwordless login role.");
+        }
+        try (Connection connection = database.connect();
+             PreparedStatement statement = connection.prepareStatement("""
+                     SELECT id, username, display_name, role, active
+                     FROM app_users
+                     WHERE LOWER(display_name) = LOWER(?) AND LOWER(login_id) = LOWER(?) AND role = ?
+                     """)) {
+            statement.setString(1, displayName.trim());
+            statement.setString(2, loginId.trim());
+            statement.setString(3, role.name());
+            try (ResultSet row = statement.executeQuery()) {
+                if (!row.next() || !row.getBoolean("active")) return null;
+                return readUser(row);
+            }
+        } catch (SQLException exception) {
+            throw new DatabaseException("Could not sign in to MediCare Pro.", exception);
+        }
+    }
+
+    /** Patients can create their own passwordless account the first time they use the online mode. */
+    public User registerOrAuthenticatePatient(String displayName, String patientId) {
+        String name = cleanIdentity(displayName, "Patient name");
+        String id = cleanIdentity(patientId, "Patient ID");
+        try (Connection connection = database.connect()) {
+            try (PreparedStatement find = connection.prepareStatement("""
+                    SELECT id, username, display_name, role, active FROM app_users
+                    WHERE LOWER(login_id) = LOWER(?) AND role = 'PATIENT'
+                    """)) {
+                find.setString(1, id);
+                try (ResultSet row = find.executeQuery()) {
+                    if (row.next()) {
+                        if (!row.getString("display_name").equalsIgnoreCase(name)) return null;
+                        return readUser(row);
+                    }
+                }
+            }
+            try (PreparedStatement insert = connection.prepareStatement("""
+                    INSERT INTO app_users (username, display_name, login_id, role, active)
+                    VALUES (?, ?, ?, 'PATIENT', TRUE) RETURNING id, username, display_name, role, active
+                    """)) {
+                insert.setString(1, "patient-" + id.toLowerCase(Locale.ROOT));
+                insert.setString(2, name);
+                insert.setString(3, id);
+                try (ResultSet row = insert.executeQuery()) {
+                    row.next();
+                    return readUser(row);
+                }
+            }
+        } catch (SQLException exception) {
+            if ("23505".equals(exception.getSQLState())) return null;
+            throw new DatabaseException("Could not register the patient login.", exception);
+        }
+    }
+
+    public void createReceptionist(User actor, String displayName, String receptionistId) {
+        requireAdmin(actor);
+        String name = cleanIdentity(displayName, "Receptionist name");
+        String id = cleanIdentity(receptionistId, "Receptionist ID");
+        try (Connection connection = database.connect();
+             PreparedStatement statement = connection.prepareStatement("""
+                     INSERT INTO app_users (username, display_name, login_id, role, active)
+                     VALUES (?, ?, ?, 'RECEPTIONIST', TRUE)
+                     """)) {
+            statement.setString(1, "receptionist-" + id.toLowerCase(Locale.ROOT));
+            statement.setString(2, name);
+            statement.setString(3, id);
+            statement.executeUpdate();
+        } catch (SQLException exception) {
+            if ("23505".equals(exception.getSQLState())) {
+                throw new IllegalArgumentException("That receptionist ID is already in use.", exception);
+            }
+            throw new DatabaseException("Could not create the receptionist login.", exception);
         }
     }
 
@@ -162,6 +243,41 @@ public final class AuthService {
                         displayName.trim(), role.name(), true);
             }
         }
+    }
+
+    private static User readUser(ResultSet row) throws SQLException {
+        return new User(row.getLong("id"), row.getString("username"), row.getString("display_name"),
+                Role.valueOf(row.getString("role")), row.getBoolean("active"));
+    }
+
+    private static void seedDemoDoctors(Connection connection, long ownerUserId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                INSERT INTO doctors (owner_user_id, name, specialization, qualifications, experience_years, phone, status)
+                SELECT ?, ?, ?, ?, ?, ?, 'Available'
+                WHERE NOT EXISTS (SELECT 1 FROM doctors WHERE name = ?)
+                """)) {
+            addDemoDoctor(statement, ownerUserId, "Dr. Ananya Rao", "General Medicine", "MBBS, MD", 12, "90000 10001");
+            addDemoDoctor(statement, ownerUserId, "Dr. Vikram Shah", "Cardiology", "MBBS, DM", 15, "90000 10002");
+            addDemoDoctor(statement, ownerUserId, "Dr. Meera Nair", "Pediatrics", "MBBS, DCH", 9, "90000 10003");
+        }
+    }
+
+    private static void addDemoDoctor(PreparedStatement statement, long ownerUserId, String name,
+                                      String specialization, String qualifications, int experience, String phone) throws SQLException {
+        statement.setLong(1, ownerUserId);
+        statement.setString(2, name);
+        statement.setString(3, specialization);
+        statement.setString(4, qualifications);
+        statement.setInt(5, experience);
+        statement.setString(6, phone);
+        statement.setString(7, name);
+        statement.executeUpdate();
+    }
+
+    private static String cleanIdentity(String value, String label) {
+        String cleaned = value == null ? "" : value.trim();
+        if (cleaned.isBlank() || cleaned.length() > 60) throw new IllegalArgumentException(label + " is required (maximum 60 characters).");
+        return cleaned;
     }
 
     private static void requireAdmin(User actor) {

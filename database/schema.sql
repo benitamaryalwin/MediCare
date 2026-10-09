@@ -1,21 +1,83 @@
-CREATE TABLE IF NOT EXISTS users (
- id INTEGER PRIMARY KEY AUTOINCREMENT,
- username TEXT NOT NULL UNIQUE,
- display_name TEXT NOT NULL,
- password_hash BLOB NOT NULL,
- password_salt BLOB NOT NULL,
- role TEXT NOT NULL CHECK(role IN ('HEAD_DOCTOR','USER')),
- active INTEGER NOT NULL DEFAULT 1
+CREATE TABLE IF NOT EXISTS app_users (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(60) NOT NULL UNIQUE,
+    display_name VARCHAR(120) NOT NULL,
+    password_hash BYTEA NOT NULL,
+    password_salt BYTEA NOT NULL,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('HEAD_DOCTOR', 'USER')),
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+ALTER TABLE app_users DROP CONSTRAINT IF EXISTS app_users_role_check;
+UPDATE app_users SET role = 'HEAD_DOCTOR' WHERE role = 'ADMIN';
+ALTER TABLE app_users ADD CONSTRAINT app_users_role_check CHECK (role IN ('HEAD_DOCTOR', 'USER'));
+
 CREATE TABLE IF NOT EXISTS patients (
- id INTEGER PRIMARY KEY AUTOINCREMENT,
- name TEXT NOT NULL,
- age INTEGER NOT NULL CHECK(age BETWEEN 0 AND 120),
- contact TEXT NOT NULL,
- doctor TEXT NOT NULL DEFAULT '',
- diagnosis TEXT NOT NULL DEFAULT '',
- status TEXT NOT NULL DEFAULT 'Active',
- owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT
+    id BIGSERIAL PRIMARY KEY,
+    owner_user_id BIGINT NOT NULL REFERENCES app_users(id) ON DELETE RESTRICT,
+    name VARCHAR(120) NOT NULL,
+    age INTEGER NOT NULL CHECK (age BETWEEN 0 AND 120),
+    gender VARCHAR(40) NOT NULL DEFAULT '',
+    contact VARCHAR(30) NOT NULL,
+    doctor VARCHAR(120) NOT NULL DEFAULT '',
+    visit_type VARCHAR(30) NOT NULL DEFAULT 'First Visit',
+    diagnosis TEXT NOT NULL DEFAULT '',
+    status VARCHAR(30) NOT NULL DEFAULT 'Active',
+    source VARCHAR(20) NOT NULL DEFAULT 'Offline',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS patients_owner_idx ON patients(owner_id);
+CREATE INDEX IF NOT EXISTS patients_owner_created_idx ON patients(owner_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS patients_name_idx ON patients(name);
+CREATE INDEX IF NOT EXISTS patients_contact_idx ON patients(contact);
+
+CREATE TABLE IF NOT EXISTS doctors (
+    id BIGSERIAL PRIMARY KEY,
+    owner_user_id BIGINT NOT NULL REFERENCES app_users(id) ON DELETE RESTRICT,
+    name VARCHAR(120) NOT NULL,
+    specialization VARCHAR(120) NOT NULL,
+    qualifications VARCHAR(180) NOT NULL DEFAULT '',
+    experience_years INTEGER NOT NULL DEFAULT 0 CHECK (experience_years BETWEEN 0 AND 80),
+    phone VARCHAR(30) NOT NULL DEFAULT '',
+    status VARCHAR(30) NOT NULL DEFAULT 'Available',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS doctors_owner_name_idx ON doctors(owner_user_id, name);
+
+CREATE TABLE IF NOT EXISTS appointments (
+    id BIGSERIAL PRIMARY KEY,
+    owner_user_id BIGINT NOT NULL REFERENCES app_users(id) ON DELETE RESTRICT,
+    patient_id BIGINT REFERENCES patients(id) ON DELETE SET NULL,
+    doctor_id BIGINT REFERENCES doctors(id) ON DELETE SET NULL,
+    patient_name VARCHAR(120) NOT NULL,
+    doctor_name VARCHAR(120) NOT NULL,
+    appointment_at TIMESTAMPTZ NOT NULL,
+    visit_mode VARCHAR(20) NOT NULL DEFAULT 'Offline',
+    status VARCHAR(32) NOT NULL DEFAULT 'Scheduled',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS patient_id BIGINT REFERENCES patients(id) ON DELETE SET NULL;
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS doctor_id BIGINT REFERENCES doctors(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS appointments_owner_date_idx ON appointments(owner_user_id, appointment_at);
+CREATE INDEX IF NOT EXISTS appointments_owner_status_idx ON appointments(owner_user_id, status);
+
+CREATE TABLE IF NOT EXISTS consultations (
+    id BIGSERIAL PRIMARY KEY,
+    owner_user_id BIGINT NOT NULL REFERENCES app_users(id) ON DELETE RESTRICT,
+    appointment_id BIGINT REFERENCES appointments(id) ON DELETE SET NULL,
+    patient_name VARCHAR(120) NOT NULL,
+    doctor_name VARCHAR(120) NOT NULL,
+    age INTEGER NOT NULL DEFAULT 0 CHECK (age BETWEEN 0 AND 120),
+    gender VARCHAR(40) NOT NULL DEFAULT '',
+    complaints TEXT NOT NULL DEFAULT '',
+    diagnosis TEXT NOT NULL DEFAULT '',
+    medication TEXT NOT NULL DEFAULT '',
+    follow_up_date DATE,
+    notes TEXT NOT NULL DEFAULT '',
+    source VARCHAR(20) NOT NULL DEFAULT 'Offline',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS consultations_owner_created_idx ON consultations(owner_user_id, created_at DESC);
+ALTER TABLE appointments DROP COLUMN IF EXISTS billed;
+DROP TABLE IF EXISTS invoices;
+

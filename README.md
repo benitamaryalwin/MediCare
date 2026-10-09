@@ -17,6 +17,16 @@ The project is a multi-module Maven build. In Eclipse every module appears as it
 
 `medicare-pro-swing` (the root `pom.xml`) is the parent that ties the modules together.
 
+## Open and run in VS Code
+
+1. Install Java 17 or newer, PostgreSQL, and the **Extension Pack for Java** in VS Code.
+2. Open the folder containing the parent `pom.xml` (`medicare-pro-swing`).
+3. Allow VS Code to import the Maven modules and download dependencies.
+4. Set `MEDICARE_DB_URL`, `MEDICARE_DB_USER`, and `MEDICARE_DB_PASSWORD` in the VS Code process environment.
+5. Open **Run and Debug**, select **Run MediCare Pro**, and press Start.
+
+The launch configuration is stored in `.vscode/launch.json` and reads database credentials from environment variables.
+
 ## Open and run in Eclipse
 
 1. Install Java 17 or newer, Eclipse IDE for Java Developers, and PostgreSQL.

@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Run MediCare Pro",
+            "request": "launch",
+            "mainClass": "com.medicarepro.MediCareProApp",
+            "projectName": "medicare-app",
+            "env": {
+                "MEDICARE_DB_URL": "${env:MEDICARE_DB_URL}",
+                "MEDICARE_DB_USER": "${env:MEDICARE_DB_USER}",
+                "MEDICARE_DB_PASSWORD": "${env:MEDICARE_DB_PASSWORD}"
+            }
+        }
+    ]
+}

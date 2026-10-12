@@ -1,6 +1,8 @@
 package com.medicarepro;
 
-
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -9,8 +11,10 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 
-public final class AuthService {
+final class AuthService {
     private final Database database;
     private final PasswordHasher passwordHasher = new PasswordHasher();
 
@@ -236,5 +240,36 @@ public final class AuthService {
             return new IllegalArgumentException("That username is already in use.", exception);
         }
         return new DatabaseException(message, exception);
+    }
+}
+
+final class PasswordHasher {
+    private static final int ITERATIONS = 210_000;
+    private static final int KEY_BITS = 256;
+    private static final int SALT_BYTES = 16;
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    public record PasswordHash(byte[] hash, byte[] salt) { }
+
+    public PasswordHash hash(char[] password) {
+        byte[] salt = new byte[SALT_BYTES];
+        RANDOM.nextBytes(salt);
+        return new PasswordHash(derive(password, salt), salt);
+    }
+
+    public boolean verify(char[] password, byte[] expectedHash, byte[] salt) {
+        return MessageDigest.isEqual(derive(password, salt), expectedHash);
+    }
+
+    private byte[] derive(char[] password, byte[] salt) {
+        PBEKeySpec spec = new PBEKeySpec(password, salt, ITERATIONS, KEY_BITS);
+        try {
+            return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+                    .generateSecret(spec).getEncoded();
+        } catch (GeneralSecurityException exception) {
+            throw new IllegalStateException("Secure password hashing is unavailable.", exception);
+        } finally {
+            spec.clearPassword();
+        }
     }
 }

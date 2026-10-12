@@ -3,6 +3,8 @@ package com.medicarepro;
 import java.awt.*;
 import java.awt.Color;
 import java.awt.Font;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -169,5 +171,18 @@ final class SwingTheme {
         UIManager.put("Table.selectionForeground", INK);
         UIManager.put("TextField.background", WHITE);
         UIManager.put("TextField.foreground", INK);
+    }
+}
+
+/** Observer event source used by Swing screens to refresh after record changes. */
+final class ClinicEvents {
+    private final PropertyChangeSupport changes = new PropertyChangeSupport(this);
+
+    public void addListener(PropertyChangeListener listener) {
+        changes.addPropertyChangeListener(listener);
+    }
+
+    public void recordsChanged(String area) {
+        changes.firePropertyChange("records", null, area);
     }
 }

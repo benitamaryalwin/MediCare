@@ -1,13 +1,33 @@
 package com.medicarepro;
 
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.Color;
+import java.awt.Font;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import javax.swing.*;
+import javax.swing.UIManager;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.AbstractTableModel;
 
-public final class FormDialogs {
+record FieldSpec(String key, String label, String initialValue, List<String> choices, boolean multiline) {
+    public static FieldSpec text(String key, String label, String initialValue) {
+        return new FieldSpec(key, label, initialValue == null ? "" : initialValue, List.of(), false);
+    }
+
+    public static FieldSpec choice(String key, String label, String initialValue, String... choices) {
+        return new FieldSpec(key, label, initialValue == null ? "" : initialValue, List.of(choices), false);
+    }
+
+    public static FieldSpec multiline(String key, String label, String initialValue) {
+        return new FieldSpec(key, label, initialValue == null ? "" : initialValue, List.of(), true);
+    }
+}
+
+final class FormDialogs {
     private FormDialogs() { }
 
     public static Map<String, String> show(Component parent, String title, List<FieldSpec> fields) {
@@ -81,5 +101,73 @@ public final class FormDialogs {
         JOptionPane.showMessageDialog(parent,
                 friendly + "\n\nNo changes were saved.",
                 "Could not complete action", JOptionPane.ERROR_MESSAGE);
+    }
+}
+
+/** Generic JTable adapter that maps domain objects into Swing table rows. */
+final class RecordTableModel<T> extends AbstractTableModel {
+    private final String[] columns;
+    private final Function<T, Object[]> rowAdapter;
+    private List<T> rows = new ArrayList<>();
+
+    public RecordTableModel(String[] columns, Function<T, Object[]> rowAdapter) {
+        this.columns = columns.clone();
+        this.rowAdapter = rowAdapter;
+    }
+
+    public void replaceRows(List<T> records) {
+        rows = new ArrayList<>(records);
+        fireTableDataChanged();
+    }
+
+    public T row(int index) {
+        return rows.get(index);
+    }
+
+    public int size() {
+        return rows.size();
+    }
+
+    @Override public int getRowCount() { return rows.size(); }
+    @Override public int getColumnCount() { return columns.length; }
+    @Override public String getColumnName(int column) { return columns[column]; }
+    @Override public Object getValueAt(int rowIndex, int columnIndex) {
+        return rowAdapter.apply(rows.get(rowIndex))[columnIndex];
+    }
+    @Override public boolean isCellEditable(int rowIndex, int columnIndex) { return false; }
+}
+
+interface Refreshable {
+    void refresh();
+}
+
+final class SwingTheme {
+    public static final Color INK = new Color(31, 53, 58);
+    public static final Color MUTED = new Color(101, 121, 122);
+    public static final Color ACCENT = new Color(49, 119, 105);
+    public static final Color PAPER = new Color(247, 247, 242);
+    public static final Color WHITE = Color.WHITE;
+    public static final Color LINE = new Color(225, 232, 228);
+
+    private SwingTheme() { }
+
+    public static void install() {
+        try {
+            UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+        } catch (Exception ignored) {
+            // Keep the platform's current Swing look and feel if Nimbus is unavailable.
+        }
+        UIManager.put("Panel.background", PAPER);
+        UIManager.put("Label.foreground", INK);
+        UIManager.put("Button.font", new Font("SansSerif", Font.BOLD, 12));
+        UIManager.put("Button.background", WHITE);
+        UIManager.put("Button.foreground", INK);
+        UIManager.put("Table.font", new Font("SansSerif", Font.PLAIN, 12));
+        UIManager.put("Table.foreground", INK);
+        UIManager.put("Table.background", WHITE);
+        UIManager.put("Table.selectionBackground", new Color(218, 235, 228));
+        UIManager.put("Table.selectionForeground", INK);
+        UIManager.put("TextField.background", WHITE);
+        UIManager.put("TextField.foreground", INK);
     }
 }

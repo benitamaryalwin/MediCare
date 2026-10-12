@@ -26,6 +26,6 @@ The database schema is in `src/main/resources/schema.sql`.
 - `src/main/java/com/medicarepro` contains the app, Swing screens, database code, and data classes.
 - `src/main/resources/schema.sql` creates the required database tables.
 
-The Java files share one package to keep the folder structure simple. Each class still has one clear job, so the flow is easy to follow from the screen to the database.
+The Java files share one package. Small data records are grouped in `PatientData.java`, shared Swing helpers are in `UiSupport.java`, and database setup is in `Database.java`. The main screens and patient operations each have their own class.
 
 This is a learning project. Use sample data only; do not enter real patient information.

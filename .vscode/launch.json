@@ -6,7 +6,7 @@
             "name": "Run MediCare Pro",
             "request": "launch",
             "mainClass": "com.medicarepro.MediCareProApp",
-            "projectName": "medicare-app",
+            "projectName": "medicare-pro-swing",
             "env": {
                 "MEDICARE_DB_URL": "${env:MEDICARE_DB_URL}",
                 "MEDICARE_DB_USER": "${env:MEDICARE_DB_USER}",

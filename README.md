@@ -79,7 +79,7 @@ Use sample data only. A clear demo sequence is:
 7. Show the dashboard totals and recent registrations.
 8. Sign out and demonstrate the patient sign-in flow.
 
-More detailed talking points are in [`docs/PRESENTATION.md`](docs/PRESENTATION.md).
+More detailed architecture and presentation notes are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/PRESENTATION.md`](docs/PRESENTATION.md).
 
 ## Notes
 

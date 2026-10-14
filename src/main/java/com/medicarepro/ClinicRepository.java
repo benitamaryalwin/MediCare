@@ -49,17 +49,20 @@ public final class ClinicRepository {
     }
 
     public Patient createPatient(User actor, PatientInput input) {
+        /** Online patients own their records; receptionists own the offline entries they register. */
         validatePatient(input);
+        long patientUserId = actor.id();
         String sql = """
-                INSERT INTO patients (owner_user_id, name, age, gender, contact, visit_type, diagnosis, status, source)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO patients (owner_user_id, patient_user_id, name, age, gender, contact, visit_type, diagnosis, status, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id, name, age, gender, contact, visit_type, diagnosis, status, source, created_at, updated_at
                 """;
         try (Connection connection = database.connect();
              PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setLong(1, actor.id());
-            bindPatient(statement, input, 2);
-            statement.setString(9, actor.isPatient() ? "Online" : "Offline");
+            statement.setLong(1, patientUserId);
+            statement.setLong(2, patientUserId);
+            bindPatient(statement, input, 3);
+            statement.setString(10, actor.isPatient() ? "Online" : "Offline");
             try (ResultSet row = statement.executeQuery()) {
                 row.next();
                 return readPatient(row);
@@ -67,6 +70,17 @@ public final class ClinicRepository {
         } catch (SQLException exception) {
             throw databaseError("Could not save the patient record.", exception);
         }
+    }
+
+    /** Adds simple fictional records for a presentation demonstration. */
+    public void addDemoPatients(User actor) {
+        if (!actor.isAdmin()) throw new SecurityException("Only the head doctor can load demo data.");
+        createPatient(actor, new PatientInput("Demo Patient 001", 34, "Female", "9000000001",
+                "First Visit", "Routine check-up", "Active"));
+        createPatient(actor, new PatientInput("Demo Patient 002", 52, "Male", "9000000002",
+                "Follow-up", "Blood pressure review", "Follow Up"));
+        createPatient(actor, new PatientInput("Demo Patient 003", 27, "Other", "9000000003",
+                "First Visit", "General consultation", "Discharged"));
     }
 
     public Patient updatePatient(User actor, long patientId, PatientInput input) {
@@ -165,11 +179,14 @@ public final class ClinicRepository {
     }
 
     private static String scope(User actor, String alias) {
-        return actor.isAdmin() ? "" : " AND " + alias + ".owner_user_id = ?";
+        if (actor.isAdmin()) return "";
+        if (actor.isPatient()) return " AND " + alias + ".patient_user_id = ?";
+        if (actor.isReceptionist()) return " AND " + alias + ".source = 'Offline'";
+        return " AND " + alias + ".owner_user_id = ?";
     }
 
     private static int bindScope(PreparedStatement statement, int parameter, User actor) throws SQLException {
-        if (actor.isAdmin()) return parameter;
+        if (actor.isAdmin() || actor.isReceptionist()) return parameter;
         statement.setLong(parameter, actor.id());
         return parameter + 1;
     }

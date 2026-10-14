@@ -1,4 +1,25 @@
 {
     "java.configuration.updateBuildConfiguration": "interactive",
-    "java.jdt.ls.vmargs": "-XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx4G -Xms100m -Xlog:disable"
+    "java.jdt.ls.vmargs": "-XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx4G -Xms100m -Xlog:disable",
+    "files.exclude": {
+        "**/target": true,
+        "**/bin": true,
+        "medicare-app": true,
+        "medicare-data": true,
+        "medicare-model": true,
+        "medicare-security": true,
+        "medicare-service": true,
+        "medicare-ui": true,
+        "MediCare-Pro-project.zip": true
+    },
+    "search.exclude": {
+        "**/target": true,
+        "**/bin": true,
+        "medicare-app": true,
+        "medicare-data": true,
+        "medicare-model": true,
+        "medicare-security": true,
+        "medicare-service": true,
+        "medicare-ui": true
+    }
 }

@@ -20,6 +20,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS app_users_login_id_unique ON app_users (LOWER(
 CREATE TABLE IF NOT EXISTS patients (
     id BIGSERIAL PRIMARY KEY,
     owner_user_id BIGINT NOT NULL REFERENCES app_users(id) ON DELETE RESTRICT,
+    patient_user_id BIGINT REFERENCES app_users(id) ON DELETE RESTRICT,
     name VARCHAR(120) NOT NULL,
     age INTEGER NOT NULL CHECK (age BETWEEN 0 AND 120),
     gender VARCHAR(40) NOT NULL DEFAULT '',
@@ -32,5 +33,10 @@ CREATE TABLE IF NOT EXISTS patients (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS patients_owner_created_idx ON patients(owner_user_id, created_at DESC);
+ALTER TABLE patients ADD COLUMN IF NOT EXISTS patient_user_id BIGINT REFERENCES app_users(id) ON DELETE RESTRICT;
+UPDATE patients p SET patient_user_id = p.owner_user_id
+FROM app_users u
+WHERE p.patient_user_id IS NULL AND p.owner_user_id = u.id AND u.role = 'PATIENT';
+CREATE INDEX IF NOT EXISTS patients_patient_user_idx ON patients(patient_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS patients_name_idx ON patients(name);
 CREATE INDEX IF NOT EXISTS patients_contact_idx ON patients(contact);

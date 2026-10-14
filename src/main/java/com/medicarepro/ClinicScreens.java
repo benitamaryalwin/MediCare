@@ -116,13 +116,9 @@ final class MainFrame extends JFrame {
         JLabel safety = new JLabel("TRAINING PROJECT · NO REAL PATIENT DATA");
         safety.setFont(new Font("Monospaced", Font.PLAIN, 9));
         safety.setForeground(SwingTheme.MUTED);
-        JButton topSignOut = new JButton("Sign out");
-        topSignOut.setToolTipText("Sign out of " + user.username());
-        topSignOut.addActionListener(event -> logout());
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 0));
         right.setOpaque(false);
         right.add(safety);
-        right.add(topSignOut);
         topbar.add(crumb, BorderLayout.WEST);
         topbar.add(right, BorderLayout.EAST);
         main.add(topbar, BorderLayout.NORTH);
@@ -236,7 +232,21 @@ final class DashboardPanel extends JPanel implements Refreshable {
         header.add(text, BorderLayout.CENTER);
         JButton refresh = new JButton("Refresh");
         refresh.addActionListener(event -> refresh());
-        header.add(refresh, BorderLayout.EAST);
+        if (user.isAdmin()) {
+            JButton demo = new JButton("Add demo data");
+            demo.setToolTipText("Add three fictional records for a presentation");
+            demo.addActionListener(event -> {
+                repository.addDemoPatients(user);
+                refresh();
+            });
+            JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+            actions.setOpaque(false);
+            actions.add(demo);
+            actions.add(refresh);
+            header.add(actions, BorderLayout.EAST);
+        } else {
+            header.add(refresh, BorderLayout.EAST);
+        }
         return header;
     }
 
@@ -540,8 +550,7 @@ final class PatientsPanel extends RecordPanel<Patient> {
     }
 
     private Map<String, String> patientForm(Patient patient) {
-        return FormDialogs.show(this, patient == null ? "Register patient" : "Update patient",
-                List.of(
+        List<FieldSpec> fields = new java.util.ArrayList<>(List.of(
                         FieldSpec.text("name", "Full name *", patient == null && user.isPatient() ? user.displayName() : (patient == null ? "" : patient.name())),
                         FieldSpec.text("age", "Age *", patient == null ? "" : String.valueOf(patient.age())),
                         FieldSpec.choice("gender", "Gender", patient == null ? "Not specified" : patient.gender(),
@@ -553,6 +562,7 @@ final class PatientsPanel extends RecordPanel<Patient> {
                         FieldSpec.choice("status", "Patient status", patient == null ? "Active" : patient.status(),
                                 "Active", "Follow Up", "Discharged")
                 ));
+        return FormDialogs.show(this, patient == null ? "Register patient" : "Update patient", fields);
     }
 
     private static PatientInput toInput(Map<String, String> values) {
@@ -581,7 +591,7 @@ final class UsersPanel extends RecordPanel<UserSummary> {
         super("User accounts", COLUMNS, UsersPanel::row, events);
         this.authService = authService;
         this.admin = admin;
-        setSubtitle("Administrator only · view accounts and create receptionist logins.");
+        setSubtitle("Head doctor only · create receptionist logins and view all accounts.");
     }
 
     @Override protected boolean supportsEdit() { return false; }
@@ -602,6 +612,7 @@ final class UsersPanel extends RecordPanel<UserSummary> {
         if (values == null) return;
         runAsync("Receptionist creation", () -> authService.createReceptionist(admin, values.get("displayName"), values.get("receptionistId")));
     }
+
 
     private static Object[] row(UserSummary user) {
         return new Object[]{user.id(), user.username(), user.displayName(), user.role(),

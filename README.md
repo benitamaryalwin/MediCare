@@ -2,6 +2,17 @@
 
 MediCare Pro is a Java 17 desktop application for managing clinic patient information. It uses Swing for the user interface, JDBC for persistence, and PostgreSQL as its database.
 
+## Core files
+
+These are the four main files to study and explain:
+
+1. [`MediCareProApp.java`](src/main/java/com/medicarepro/MediCareProApp.java) — application startup and login flow.
+2. [`AuthService.java`](src/main/java/com/medicarepro/AuthService.java) — authentication, accounts, and roles.
+3. [`ClinicRepository.java`](src/main/java/com/medicarepro/ClinicRepository.java) — patient database operations.
+4. [`ClinicScreens.java`](src/main/java/com/medicarepro/ClinicScreens.java) — dashboard and Swing user interface.
+
+Supporting files are `Database.java`, `PatientData.java`, and `UiSupport.java`.
+
 ## Features
 
 - First-run administrator setup.
